@@ -69,6 +69,7 @@ select{-webkit-appearance:none;appearance:none;display:block;width:100%;font:inh
 .stats b{font-size:20px}
 .stats .good{color:var(--ok)}.stats .bad{color:var(--miss-fg)}
 .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.row #save{background:var(--btn);color:var(--btn-fg);border-color:var(--btn);font-weight:700}
 .row button{border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:15px;border-radius:10px;padding:8px 12px}
 .log{margin:18px 0 0}
 .log h2{font-size:18px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--fg)}
@@ -118,7 +119,9 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   <section class="log">
     <h2>今回の練習</h2>
     <table><thead><tr><th>文</th><th>一致</th><th>前回</th></tr></thead><tbody id="log"><tr><td colspan="3">まだありません</td></tr></tbody></table>
-    <div class="row"><button id="clear" type="button">今回の結果を消す</button></div>
+    <div class="row"><button id="save" type="button">結果を保存</button><button id="copy" type="button">結果をコピー</button><button id="clear" type="button">今回の結果を消す</button></div>
+    <div class="row" id="dirRow" hidden><button id="redir" type="button">保存先を選び直す</button><span id="dirName" class="note" style="margin:0;align-self:center"></span></div>
+    <p class="note" id="saveNote" style="margin-top:6px"></p>
   </section>
   <p class="note" id="ver"></p>
 </main>
@@ -138,6 +141,10 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (_) { saved = {}; }
   const persist = () => { try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch (_) {} };
+  // 保存した練習記録の集計（iCloud の 練習記録 → _tools/practice_review.py → 書き出し時に埋め込む）。端末の記録より新しければこちらを使う
+  const PROGRESS = {};
+  Object.entries(PROGRESS).forEach(([k, v]) => { if (!saved[k] || !saved[k].at || saved[k].at < v.at) saved[k] = v; });
+  let attempts = []; // 今回の練習の全部の回（記録ファイルに書く）
 
   // 声に出す文：要点はその文、用語・問いは答え
   const sayText = x => x.type === 'word' ? (step === 2 ? x.detail : x.back) : x.type === 'point' ? x.front : x.back;
@@ -153,7 +160,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
       .map(([k, l]) => `<option value="${k}"${k === cat ? ' selected' : ''}>${esc(l)}（${cnt(k)}）</option>`).join('');
   }
   $('sub').textContent = `単語 ${DATA.items.filter(x => x.type === 'word').length}・実機の知見 ${DATA.items.filter(x => x.type !== 'word').length}`;
-  $('ver').textContent = `データ：${DATA.updated} 更新`;
+  $('ver').textContent = `データ：${DATA.updated} 更新${Object.keys(PROGRESS).length ? `・記録の集計 ${Object.keys(PROGRESS).length}件を反映` : ''}`;
 
   function render() { // 出すカードを選び直して描く
     cards = pool().filter(x => cat === 'key' ? x.key : cat === 'all' ? true : x.category === cat)
@@ -309,10 +316,13 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
     const score = a.length ? Math.round(same / Math.max(a.length, b.length) * 100) : 0;
     const key = rk(x);
     (tries[key] = tries[key] || []).push(score);
+    const at = stamp();
     results[key] = {raw, ops, score, n: tries[key].length, x, st: step};
-    if (tries[key].length === 1) saved[key] = {s: score, prev: saved[key] ? saved[key].s : null};
-    else saved[key] = {s: score, prev: saved[key] ? saved[key].prev : null};
+    if (tries[key].length === 1) saved[key] = {s: score, prev: saved[key] ? saved[key].s : null, at};
+    else saved[key] = {s: score, prev: saved[key] ? saved[key].prev : null, at};
     persist();
+    attempts.push({id: x.id, step, word: x.front, card: say, said: raw, score, sec: Math.round(x.sec * 10) / 10, at});
+    unsaved++; saveLabel();
     const keep = track.scrollLeft; draw(); track.scrollLeft = keep; updatePos(); showResult(); renderLog();
   }
   micBtn.addEventListener('touchstart', start, {passive: false});
@@ -348,7 +358,65 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   const setStep = n => { step = n; [1, 2, 3].forEach(k => $('s' + k).setAttribute('aria-pressed', k === n)); fillCats(); render(); keepView(); };
   [1, 2, 3].forEach(k => $('s' + k).addEventListener('click', () => setStep(k)));
   $('cat').addEventListener('change', e => { cat = e.target.value; render(); keepView(); e.target.blur(); });
-  $('clear').addEventListener('click', () => { results = {}; tries = {}; draw(); showResult(); renderLog(); });
+  $('clear').addEventListener('click', () => { results = {}; tries = {}; attempts = []; unsaved = 0; saveLabel(); draw(); showResult(); renderLog(); });
+
+  // ===== 記録の保存（GIG の読み合わせと同じ流れ。保存先は iCloud の ロボティクス復習/練習記録） =====
+  function stamp() { const d = new Date(), z = n => String(n).padStart(2, '0'); const o = -d.getTimezoneOffset(); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}${o >= 0 ? '+' : '-'}${z(Math.floor(Math.abs(o) / 60))}:${z(Math.abs(o) % 60)}`; }
+  let unsaved = 0;
+  const saveLabel = () => { $('save').textContent = unsaved ? `結果を保存（未保存 ${unsaved}回）` : '結果を保存'; };
+  const STEPNAME = {1: '1 単語', 2: '2 説明', 3: '3 実機の知見'};
+  function report() {
+    const d = new Date(); const ts = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    let s = `# ロボティクス見直しの記録（${ts}）\n\n${attempts.length}回・データ ${DATA.updated}\n\n`;
+    attempts.forEach(a => { s += `## ${STEPNAME[a.step]}｜${a.word}\n- カード：${a.card}\n- 話した：${a.said}\n- 一致 ${a.score}%／${a.sec}秒\n\n`; });
+    s += '<!-- 集計用（_tools/practice_review.py が読む） -->\n```json\n' + JSON.stringify({page: 'robotics-review', data: DATA.updated, at: stamp(), tries: attempts}) + '\n```\n';
+    return s;
+  }
+  const fileName = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `ロボ見直し_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.md`; };
+  const doneSaving = msg => { unsaved = 0; $('save').textContent = msg; setTimeout(saveLabel, 2500); };
+  function download() {
+    const b = new Blob([report()], {type: 'application/octet-stream'}); const a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = fileName(); document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    doneSaving('保存しました（ダウンロード）');
+  }
+  // PC（Chrome・Edge）：一度選んだ「練習記録」フォルダへ直接書き込む（選んだフォルダはこのブラウザの中だけに覚える）
+  const CAN_DIR = !IOS && 'showDirectoryPicker' in window;
+  const idb = (mode, fn) => new Promise((ok, ng) => { try { const q = indexedDB.open('robotics-review', 1); q.onupgradeneeded = () => q.result.createObjectStore('kv'); q.onerror = () => ng(q.error);
+    q.onsuccess = () => { try { const t = q.result.transaction('kv', mode); const r = fn(t.objectStore('kv')); t.oncomplete = () => ok(r && r.result); t.onerror = () => ng(t.error); } catch (e) { ng(e); } }; } catch (e) { ng(e); } });
+  const getDir = () => idb('readonly', st => st.get('dir')).catch(() => null);
+  const putDir = h => idb('readwrite', st => st.put(h, 'dir')).catch(() => null);
+  const showDirName = h => { $('dirName').textContent = h ? `保存先：${h.name}` : '保存先：まだ選んでいません'; };
+  async function pickDir() {
+    const h = await window.showDirectoryPicker({id: 'robo-renshu', mode: 'readwrite'});
+    if (h.name !== '練習記録') showWarn(`選んだのは「${h.name}」です。iCloud Drive → PixelstoMotors → ロボティクス復習 → 練習記録 を選んでください。`); else $('warn').hidden = true;
+    await putDir(h); showDirName(h); return h;
+  }
+  // iPhone：共有の画面から「"ファイル"に保存」→ ロボティクス復習 → 練習記録（2回目からは同じ場所が出る）
+  async function shareSave() {
+    const f = new File([report()], fileName(), {type: 'text/markdown'});
+    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f]}); doneSaving('保存しました'); return true; }
+    return false;
+  }
+  $('save').addEventListener('click', async () => {
+    if (!attempts.length) { $('save').textContent = 'まだ記録がありません'; setTimeout(saveLabel, 1800); return; }
+    if (IOS) { try { if (await shareSave()) return; } catch (e) { if (e && e.name === 'AbortError') return; } return download(); }
+    if (!CAN_DIR) return download();
+    try {
+      let h = await getDir();
+      if (h && (await h.queryPermission({mode: 'readwrite'})) !== 'granted' && (await h.requestPermission({mode: 'readwrite'})) !== 'granted') h = null;
+      if (!h) { showWarn('保存先のフォルダを選んでください：iCloud Drive → PixelstoMotors → ロボティクス復習 → 練習記録（最初の1回だけ）'); h = await pickDir(); }
+      const w = await (await h.getFileHandle(fileName(), {create: true})).createWritable(); await w.write(report()); await w.close();
+      doneSaving(`${h.name}に保存しました`);
+    } catch (e) {
+      if (e && e.name === 'AbortError') { $('warn').hidden = true; return; }
+      showWarn('練習記録に書き込めなかったので、ダウンロードに保存しました。'); download();
+    }
+  });
+  $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(report()); $('copy').textContent = 'コピーしました'; } catch (_) { $('copy').textContent = 'コピーできませんでした'; } setTimeout(() => $('copy').textContent = '結果をコピー', 1800); });
+  if (CAN_DIR) { $('dirRow').hidden = false; $('redir').addEventListener('click', () => pickDir().catch(() => {})); getDir().then(showDirName); }
+  $('saveNote').textContent = IOS ? '保存先：「"ファイル"に保存」→ ロボティクス復習 → 練習記録' : CAN_DIR ? '' : '保存はダウンロードに入ります。練習記録に直接入れたいときはChromeで開いてください';
+  window.addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
   // 前に開いていた段階・カテゴリ・言い方から始める（この端末の中だけ）
   try { const v = JSON.parse(localStorage.getItem(PREF) || 'null'); if (v) { cat = v.cat || 'all'; if (v.mode === 'hide') { mode = 'hide'; $('mHide').setAttribute('aria-pressed', true); $('mSee').setAttribute('aria-pressed', false); } setStep(v.step || 1); } else setStep(1); } catch (_) { setStep(1); }
 })();
