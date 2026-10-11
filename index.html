@@ -416,6 +416,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
     await putDir(h); showDirName(h); return h;
   }
   // iPhone：共有の画面から「"ファイル"に保存」→ ロボティクス復習 → 練習記録（2回目からは同じ場所が出る）
+  const SHORTCUT = 'ロボ見直しを保存';
   async function shareSave() {
     const f = new File([report()], fileName(), {type: 'text/markdown'});
     if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f]}); doneSaving('保存しました'); return true; }
@@ -423,7 +424,10 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   }
   $('save').addEventListener('click', async () => {
     if (!attempts.length) { $('save').textContent = 'まだ記録がありません'; setTimeout(saveLabel, 1800); return; }
-    if (IOS) { try { if (await shareSave()) return; } catch (e) { if (e && e.name === 'AbortError') return; } return download(); }
+    if (IOS) { // iPhone：記録をコピーして、ショートカット「ロボ見直しを保存」に渡す（練習記録フォルダに直接入る）
+      try { await navigator.clipboard.writeText(report()); doneSaving('ショートカットで保存中'); location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUT) + '&input=clipboard'; return; } catch (_) {}
+      try { if (await shareSave()) return; } catch (e) { if (e && e.name === 'AbortError') return; } return download();
+    }
     if (!CAN_DIR) return download();
     try {
       let h = await getDir();
@@ -438,7 +442,10 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   });
   $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(report()); $('copy').textContent = 'コピーしました'; } catch (_) { $('copy').textContent = 'コピーできませんでした'; } setTimeout(() => $('copy').textContent = '結果をコピー', 1800); });
   if (CAN_DIR) { $('dirRow').hidden = false; $('redir').addEventListener('click', () => pickDir().catch(() => {})); getDir().then(showDirName); }
-  $('saveNote').textContent = IOS ? '保存先：「"ファイル"に保存」→ ロボティクス復習 → 練習記録' : CAN_DIR ? '' : '保存はダウンロードに入ります。練習記録に直接入れたいときはChromeで開いてください';
+  if (IOS) { const b = document.createElement('button'); b.type = 'button'; b.id = 'share'; b.textContent = '共有から保存';
+    b.addEventListener('click', async () => { if (!attempts.length) return; try { if (!(await shareSave())) download(); } catch (e) { if (!(e && e.name === 'AbortError')) download(); } });
+    $('clear').before(b); }
+  $('saveNote').textContent = IOS ? '' : CAN_DIR ? '' : '保存はダウンロードに入ります。練習記録に直接入れたいときはChromeで開いてください';
   window.addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
   // 前に開いていた段階・カテゴリ・言い方から始める（この端末の中だけ）
   try { const v = JSON.parse(localStorage.getItem(PREF) || 'null'); if (v) { cat = v.cat || 'all'; if (v.mode === 'hide') { mode = 'hide'; $('mHide').setAttribute('aria-pressed', true); $('mSee').setAttribute('aria-pressed', false); } setStep(v.step || 1); } else setStep(1); } catch (_) { setStep(1); }
