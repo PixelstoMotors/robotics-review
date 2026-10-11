@@ -31,7 +31,9 @@ header h1{margin:0;font-size:21px}
 header p{margin:2px 0 0;font-size:14px;color:rgba(255,255,255,.75)}
 main{padding:12px 16px 0;max-width:720px;margin:0 auto}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
-select{font:inherit;font-size:16px;font-weight:600;background:var(--btn);color:var(--btn-fg);border:0;border-radius:10px;padding:9px 12px;max-width:100%}
+.selwrap{position:relative;display:block;width:100%}
+select{-webkit-appearance:none;appearance:none;display:block;width:100%;font:inherit;font-size:16px;font-weight:600;background:var(--btn);color:var(--btn-fg);border:0;border-radius:10px;padding:10px 44px 10px 14px;margin:0}
+.selwrap::after{content:"";position:absolute;right:18px;top:50%;width:8px;height:8px;border-right:2px solid var(--btn-fg);border-bottom:2px solid var(--btn-fg);transform:translateY(-70%) rotate(45deg);pointer-events:none}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
 .seg button{border:0;background:transparent;color:var(--fg);font:inherit;font-size:15px;padding:8px 12px}
 .seg button[aria-pressed="true"]{background:var(--btn);color:var(--btn-fg)}
@@ -91,7 +93,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
     <button id="s3" type="button" aria-pressed="false">3 実機の知見</button>
   </div>
   <div class="bar">
-    <select id="cat" aria-label="カテゴリ"></select>
+    <span class="selwrap"><select id="cat" aria-label="カテゴリ"></select></span>
     <div class="seg" role="group" aria-label="言い方">
       <button id="mSee" type="button" aria-pressed="true">見て言う</button>
       <button id="mHide" type="button" aria-pressed="false">見ないで言う</button>
