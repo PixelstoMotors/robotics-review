@@ -148,6 +148,8 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
 
   // 声に出す文：要点はその文、用語・問いは答え
   const sayText = x => x.type === 'word' ? (step === 2 ? x.detail : x.back) : x.type === 'point' ? x.front : x.back;
+  const termForms = w => { const m = w.match(/^(.*?)（(.*)）$/); if (!m) return [w]; const sub = m[2].split(/・|、/).map(t => t.trim()).filter(Boolean); return [m[1], ...sub, m[1] + m[2]]; };
+  const targets = x => x.type === 'word' && step === 1 ? termForms(x.front).flatMap(t => [`${t}は、${x.back}`, `${t}、${x.back}`]) : [sayText(x)];
   const pool = () => DATA.items.filter(x => step === 3 ? x.type !== 'word' : x.type === 'word');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
@@ -193,7 +195,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
       return `<div class="card"><div class="sec">${esc(sec)}</div>${lb}${w}${q}<div class="t${cls}">${esc(t)}</div>${b}<div class="m"><span>${esc(kind)}</span>${done}</div></div>`;
     }).join('') || '<div class="card"><div class="t">ここに出す項目がありません</div></div>';
     const keys = cards.filter(x => x.key).length;
-    $('info').textContent = `${cards.length}枚${keys && cat !== 'key' ? `（${step === 3 ? '核心' : 'まず覚える'} ${keys}）` : ''}`;
+    $('info').textContent = `${cards.length}枚${keys && cat !== 'key' ? `（${step === 3 ? '核心' : 'まず覚える'} ${keys}）` : ''}${step === 1 ? '・用語から続けて言う' : ''}`;
   }
 
   function updatePos() {
@@ -310,10 +312,11 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
     const x = target; target = null;
     const raw = (finalText + interim).trim();
     if (!raw || x.sec < 0.6) { $('said').textContent = !raw ? '聞き取れませんでした。押したまま話して、言い終わってから離してください' : '押す時間が短すぎました'; return; }
-    const say = sayText(x);
-    const a = prep(say), b = prep(align(say, raw));
-    const {ops, same} = diff(a, b);
-    const score = a.length ? Math.round(same / Math.max(a.length, b.length) * 100) : 0;
+    // 1 単語は「用語＋意味」を一続きで言う。用語はカッコの前後どちらで言ってもよく、「は」は無くてもよい（いちばん合う言い方で比べる）
+    const cands = targets(x);
+    let best = null;
+    cands.forEach(t => { const a = prep(t), b = prep(align(t, raw)); const d = diff(a, b); const sc = a.length ? Math.round(d.same / Math.max(a.length, b.length) * 100) : 0; if (!best || sc > best.score) best = {say: t, ops: d.ops, score: sc}; });
+    const {say, ops, score} = best;
     const key = rk(x);
     (tries[key] = tries[key] || []).push(score);
     const at = stamp();
