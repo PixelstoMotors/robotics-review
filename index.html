@@ -97,6 +97,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
 .cat.dark::after{border-color:var(--btn-fg)}
 .cat.dark .ct{color:inherit;opacity:.75}.cat.dark .ct b{color:inherit}
 .homeh{font-size:15px;color:var(--muted);font-weight:600;margin:18px 2px 8px}
+@media (min-width:560px){.cats{display:grid;grid-template-columns:1fr 1fr}.homeh{grid-column:1/-1;margin:8px 2px 0}.cat{display:flex;flex-direction:column}.cat .meter{margin-top:auto}.cat .ct+.ct{margin-bottom:10px}main:has(#home:not([hidden])){max-width:960px}}
 .back{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--fg);font:inherit;font-size:16px;font-weight:600;padding:4px 2px;margin:0 0 6px}
 .back::before{content:"";width:9px;height:9px;border-left:2.75px solid var(--fg);border-bottom:2.75px solid var(--fg);border-radius:1px;transform:rotate(45deg);margin-left:4px}
 .ctitle{font-size:22px;font-weight:700;margin:0 0 10px;line-height:1.4}
@@ -192,7 +193,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
   function catRow(k, dark) {
     const p = progress(k);
     return `<button class="cat${dark ? ' dark' : ''}" type="button" data-k="${k}"><span class="nm">${esc(catName(k))}</span>`
-      + `<span class="ct">単語 ${p.w}・判断の型 ${p.l}　言えた <b>${p.ok}</b> / ${p.total}${p.weak ? `<span class="weak">・苦手 ${p.weak}</span>` : ''}</span>`
+      + `<span class="ct">単語 ${p.w}・判断の型 ${p.l}</span><span class="ct">言えた <b>${p.ok}</b> / ${p.total}${p.weak ? `<span class="weak">・苦手 ${p.weak}</span>` : ''}</span>`
       + `<span class="meter"><i style="width:${p.total ? Math.round(p.ok / p.total * 100) : 0}%"></i></span></button>`;
   }
   function renderHome() {
