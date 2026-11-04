@@ -87,6 +87,8 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--time);outline-
 .cats{display:flex;flex-direction:column;gap:10px;margin:4px 0 0}
 .cat{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;border-radius:14px;padding:14px 44px 14px 16px;position:relative}
 .cat::after{content:"";position:absolute;right:20px;top:50%;width:9px;height:9px;border-right:2.75px solid var(--fg);border-top:2.75px solid var(--fg);border-radius:1px;transform:translateY(-50%) rotate(45deg)}
+button,select{cursor:pointer}button:disabled{cursor:default}
+@media (hover:hover){.cat{transition:border-color .15s,background-color .15s}.cat:hover{border-color:var(--muted)}.cat.dark:hover{border-color:var(--btn)}}
 .cat .nm{display:block;font-size:18px;font-weight:700;line-height:1.5}
 .cat .ct{display:block;font-size:14px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
 .cat .ct b{color:var(--fg);font-size:16px}
