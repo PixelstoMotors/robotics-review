@@ -1,6 +1,6 @@
-# robotics-review
+# robotics-review（ロボティクス 声の単語帳）
 
-Pixels to Motors の開発ログから作った、ロボティクスの見直しページ（声に出して確認する）。
+Pixels to Motors の開発ログから作った、ロボティクス 声の単語帳（旧名 ロボティクスの見直し）（声に出して確認する）。
 
 https://pixelstomotors.github.io/robotics-review/
 
